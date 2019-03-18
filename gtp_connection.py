@@ -29,6 +29,7 @@ class GtpConnection():
         self._debug_mode = debug_mode
         self.go_engine = go_engine
         self.board = board
+        self.policy = "random"
         self.commands = {
             "protocol_version": self.protocol_version_cmd,
             "quit": self.quit_cmd,
@@ -49,7 +50,9 @@ class GtpConnection():
             "gogui-rules_side_to_move": self.gogui_rules_side_to_move_cmd,
             "gogui-rules_board": self.gogui_rules_board_cmd,
             "gogui-rules_final_result": self.gogui_rules_final_result_cmd,
-            "gogui-analyze_commands": self.gogui_analyze_cmd
+            "gogui-analyze_commands": self.gogui_analyze_cmd,
+            "policy": self.policy_cmd,
+            "policy_moves": self.policy_moves_cmd            
         }
 
         # used for argument checking
@@ -255,10 +258,15 @@ class GtpConnection():
         if game_end:
             if winner == color:
                 self.respond("pass")
+            if winner == EMPTY:
+                self.respond("pass")
             else:
                 self.respond("resign")
             return
-        move = self.go_engine.get_move(self.board, color)
+        if self.policy == "random":
+            move = self.go_engine.get_move_random(self.board, color)
+        else:
+            move = self.go_engine.get_move_rule(self.board, color)
         if move == PASS:
             self.respond("pass")
             return
@@ -346,6 +354,31 @@ class GtpConnection():
                      "pstring/Rules GameID/gogui-rules_game_id\n"
                      "pstring/Show Board/gogui-rules_board\n"
                      )
+        
+    def policy_cmd(self, args):
+        try:
+            policy = args[0]
+            if (policy != "random" and policy != "rule_based"):
+                raise 
+        except:
+            self.respond("The policy can only be: random or rule_based")
+            return
+        self.policy = policy
+        self.respond()
+        
+        
+        
+    def policy_moves_cmd(self, args):
+        policy_move_list = self.board.get_policy_move()
+        for i in range(1,len(policy_move_list)):
+            #print(policy_move_list[i])
+            policy_move_list[i] = format_point(point_to_coord(policy_move_list[i],self.board.size))
+        tmp_list = policy_move_list[1:]
+        tmp_list.sort()
+        respond_str = policy_move_list[0] + " "
+        for i in range(len(tmp_list)):
+            respond_str += tmp_list[i] + " "
+        self.respond(respond_str)    
 
 def point_to_coord(point, boardsize):
     """

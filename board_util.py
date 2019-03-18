@@ -174,3 +174,79 @@ class GoBoardUtil(object):
             start = goboard.row_start(row + 1)
             board2d[row, :] = goboard.board[start : start + size]
         return board2d
+    
+    @staticmethod
+    def genmove_random(board):
+            assert board.check_game_end_gomoku()
+            moves = board.get_empty_points()
+            numMoves = len(moves)
+            score = [0] * numMoves
+            for i in range(numMoves):
+                move = moves[i]
+                score[i] = simulate_random(board, move)
+            #print(score)
+            bestIndex = score.index(max(score))
+            best = moves[bestIndex]
+            #print("Best move:", best, "score", score[best])
+            assert best in board.get_empty_points()
+            if (len(board.get_empty_points()) == 0):
+                return PASS
+            else:
+                return best
+        
+    @staticmethod    
+    def genmove_rule(board):
+        assert board.check_game_end_gomoku()
+        moves = board.get_empty_points()
+        numMoves = len(moves)
+        score = [0] * numMoves
+        for i in range(numMoves):
+            move = moves[i]
+            score[i] = simulate_rule(board, move)
+        #print(score)
+        bestIndex = score.index(max(score))
+        best = moves[bestIndex]
+        #print("Best move:", best, "score", score[best])
+        assert best in board.get_empty_points()
+        if (len(board.get_empty_points()) == 0):
+            return PASS
+        else:        
+            return best        
+    
+def simulate_random(board, move):
+    numSimulations = 10
+    stats = [0] * 3
+    board.play_move_gomoku(move, board.current_player)
+    copy_board = board.copy()
+    #moveNr = board.moveNumber()
+    for _ in range(numSimulations):
+        winner, _ = copy_board.simulate_random()
+        stats[winner] += 1
+        #board.resetToMoveNumber(moveNr)
+    assert sum(stats) == numSimulations
+    #assert moveNr == board.moveNumber()
+    board.undoMove(move)
+    eval = (stats[BLACK] + 0.5 * stats[EMPTY]) / numSimulations
+    if board.current_player == WHITE:
+        eval = 1 - eval
+    return eval    
+
+def simulate_rule(board, move):
+    numSimulations = 10
+    stats = [0] * 3
+    board.play_move_gomoku(move, board.current_player) 
+    #moveNr = board.moveNumber()
+    for _ in range(numSimulations):
+        copy_board = board.copy()
+        winner = copy_board.simulaterules()
+        stats[winner] += 1
+        #board.resetToMoveNumber(moveNr)
+    assert sum(stats) == numSimulations
+    #assert moveNr == board.moveNumber()
+    board.undoMove(move)
+    eval = (stats[BLACK] + 0.5 * stats[EMPTY]) / numSimulations
+    if board.current_player == WHITE:
+        eval = 1 - eval
+    return eval    
+
+

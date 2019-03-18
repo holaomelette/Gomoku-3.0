@@ -10,6 +10,7 @@ The board uses a 1-dimensional representation with padding
 """
 
 import numpy as np
+import random
 from board_util import GoBoardUtil, BLACK, WHITE, EMPTY, BORDER, \
                        PASS, is_black_white, coord_to_point, where1d, \
                        MAXSIZE, NULLPOINT
@@ -416,5 +417,276 @@ class SimpleGoBoard(object):
         for point in black_points:
             if self.point_check_game_end_gomoku(point):
                 return True, BLACK
-
+        if len(self.get_empty_points()) == 0:
+            #print(str(len(self.get_empty_points()))+" ")
+            return True, EMPTY
         return False, None
+
+    # simulate one game from the current state until the end
+    def simulate_random(self):
+        i = 0
+        if not self.check_game_end_gomoku()[0]:
+            allMoves = self.get_empty_points()
+            random.shuffle(allMoves)
+            while not self.check_game_end_gomoku()[0]:
+                self.play_move_gomoku(allMoves[i],self.current_player)
+                i += 1
+        _ , winner = self.check_game_end_gomoku()
+        return winner, i        
+    
+    def simulaterules(self):
+        if not self.check_game_end_gomoku()[0]:
+            move_list = self.get_policy_move()           
+            self.play_move_gomoku(move_list[1],self.current_player)
+            winner_1 = self.simulaterules()
+        state , winner = self.check_game_end_gomoku()
+        if state:
+            return winner    
+        else:
+            return winner_1
+                
+    def undoMove(self,m):
+        self.board[m] = EMPTY
+        self.current_player = GoBoardUtil.opponent(self.current_player)    
+        
+    
+    
+    def get_policy_move(self):
+        board_list = self.make_board_list()
+        #print(board_list)
+        win_list = self.check_Win(board_list)
+        if len(win_list) != 0:
+            win_list.insert(0,"Win")
+            #print(win_list)
+            return win_list
+        BlockWin_list = self.check_BlockWin(board_list)
+        if len(BlockWin_list) != 0:
+            BlockWin_list.insert(0,"BlockWin")
+            return BlockWin_list
+        OpenFour_list = self.check_OpenFour(board_list)
+        if len(OpenFour_list) != 0:
+            OpenFour_list.insert(0,"OpenFour")
+            return OpenFour_list
+        BlockOpenFour_list = self.check_BlockOpenFour(board_list)
+        if len(BlockOpenFour_list) != 0:
+            BlockOpenFour_list.insert(0,"BlockOpenFour")
+            return BlockOpenFour_list
+        Random_list = self.get_empty_points()
+        
+        #random.shuffle(Random_list)
+        Random_list = list(Random_list)
+        #print(Random_list)
+        
+            #return []
+        Random_list.insert(0,"Random")
+        if(Random_list == ["Random"]):
+            return [""]
+        return Random_list      
+    
+    def make_board_list(self):
+        final_list = []
+        start_point = self.NS + 1
+        while (start_point <= self.NS * self.NS):
+            if self.board[start_point] == 3:
+                start_point += 1
+       
+            six_points = []
+            moving_point = start_point
+            for i in range(6):
+                if self.board[moving_point] != 3:
+                    six_points.append(moving_point)
+                    moving_point += 1
+            if len(six_points) == 6:
+                final_list.append(six_points)
+        
+            
+            six_points = []
+            moving_point = start_point
+            for i in range(6):
+                if self.board[moving_point] != 3:
+                    six_points.append(moving_point)
+                    moving_point += self.NS
+            if len(six_points) == 6:
+                final_list.append(six_points)       
+                    
+                    
+            six_points = []
+            moving_point = start_point
+            for i in range(6):
+                if self.board[moving_point] != 3:
+                    six_points.append(moving_point)
+                    moving_point += self.NS + 1
+            if len(six_points) == 6:
+                final_list.append(six_points)      
+                
+            six_points = []
+            moving_point = start_point
+            for i in range(6):
+                if self.board[moving_point] != 3:
+                    six_points.append(moving_point)
+                    moving_point += self.NS - 1
+            if len(six_points) == 6:
+                final_list.append(six_points)                
+        
+            start_point += 1
+        
+        b_set = set(tuple(x) for x in final_list)
+        final_list = [ list(x) for x in b_set ]
+        return final_list
+    
+    def check_Win(self,board_list):
+        result_list = []
+        condition_list = [[1,1,1,1,0,0],[1,1,1,1,0,2],[0,1,1,1,1,0],[2,1,1,1,1,0],[0,1,1,1,1,2],[0,0,1,1,1,1],[2,0,1,1,1,1],[1,1,1,0,1,0],[1,1,1,0,1,2],[0,1,0,1,1,1],[2,1,0,1,1,1],[1,1,0,1,1,0],[1,1,0,1,1,2],[0,1,1,0,1,1],[2,1,1,0,1,1],[0,1,1,1,0,1],[2,1,1,1,0,1],[1,0,1,1,1,0],[1,0,1,1,1,2]]
+        for item in board_list:
+            item_trans = []
+            number_black = 0
+            number_white = 0
+            for i in range(6):
+                item_trans.append(self.board[item[i]])
+                if self.board[item[i]] == 1:
+                    number_black += 1
+                if self.board[item[i]] == 2:
+                    number_white += 1                    
+                i += 1
+                
+
+            if self.current_player == WHITE:
+                item_trans = []
+                for j in range(6):
+                    if self.board[item[j]] == 1:
+                        item_trans.append(2)
+                    elif self.board[item[j]] == 2:
+                        item_trans.append(1)
+                    else:
+                        item_trans.append(0)
+            #print(item_trans)     
+            if item_trans in condition_list:
+                num_condition = condition_list.index(item_trans)
+                if num_condition == 0 or num_condition == 1:
+                    result_list.append(item[4])
+                elif num_condition == 2:
+                    result_list.append(item[0])
+                    result_list.append(item[5])
+                elif num_condition == 3:
+                    result_list.append(item[5])
+                elif num_condition == 4:
+                    result_list.append(item[0])
+                elif num_condition == 5 or num_condition == 6:
+                    result_list.append(item[1]) 
+                elif num_condition == 7 or num_condition == 8:
+                    result_list.append(item[3])
+                elif num_condition == 9 or num_condition == 10:
+                    result_list.append(item[2])
+                elif num_condition == 11 or num_condition == 12:
+                    result_list.append(item[2])
+                elif num_condition == 13 or num_condition == 14:
+                    result_list.append(item[3]) 
+                elif num_condition == 15 or num_condition == 16:
+                    result_list.append(item[4])     
+                elif num_condition == 17 or num_condition == 18:
+                    result_list.append(item[1])  
+            
+        result_list = list(dict.fromkeys(result_list))
+        return result_list
+        
+        
+        
+    def check_BlockWin(self,board_list):
+        self.current_player = GoBoardUtil.opponent(self.current_player)
+        result_list = self.check_Win(board_list)
+        self.current_player = GoBoardUtil.opponent(self.current_player)
+        return result_list
+        
+        
+    def check_OpenFour(self,board_list):
+        result_list = []
+        condition_list = [[0,1,1,1,0,0],[0,0,1,1,1,0],[0,1,1,0,1,0],[0,1,0,1,1,0]]
+        for item in board_list:
+            item_trans = []
+            number_black = 0
+            number_white = 0
+            for i in range(6):
+                item_trans.append(self.board[item[i]])
+                if self.board[item[i]] == 1:
+                    number_black += 1
+                if self.board[item[i]] == 2:
+                    number_white += 1                    
+                i += 1
+                
+
+            if self.current_player == WHITE:
+                item_trans = []
+                for j in range(6):
+                    if self.board[item[j]] == 1:
+                        item_trans.append(2)
+                    elif self.board[item[j]] == 2:
+                        item_trans.append(1)
+                    else:
+                        item_trans.append(0)
+            #print(item_trans)     
+            if item_trans in condition_list:
+                num_condition = condition_list.index(item_trans)
+            
+                if num_condition == 0:
+                    result_list.append(item[4])
+                elif num_condition == 1:
+                    result_list.append(item[1])
+                elif num_condition == 2:
+                    result_list.append(item[3])
+                elif num_condition == 3:
+                    result_list.append(item[2]) 
+            
+        result_list = list(dict.fromkeys(result_list))
+        return result_list
+        
+        
+    def check_BlockOpenFour(self,board_list):
+        result_list = []
+        condition_list = [[0,1,1,1,0,0],[0,0,1,1,1,0],[0,1,1,0,1,0],[0,1,0,1,1,0],[0,1,1,1,0,2],[2,0,1,1,1,0]]
+        for item in board_list:
+            item_trans = []
+            number_black = 0
+            number_white = 0
+            for i in range(6):
+                item_trans.append(self.board[item[i]])
+                if self.board[item[i]] == 1:
+                    number_black += 1
+                if self.board[item[i]] == 2:
+                    number_white += 1                    
+                i += 1
+                
+
+            if self.current_player == BLACK:
+                item_trans = []
+                for j in range(6):
+                    if self.board[item[j]] == 1:
+                        item_trans.append(2)
+                    elif self.board[item[j]] == 2:
+                        item_trans.append(1)
+                    else:
+                        item_trans.append(0)
+                        
+            print(item_trans)     
+            if item_trans in condition_list:
+                num_condition = condition_list.index(item_trans)
+            
+                if num_condition == 0:
+                    result_list.append(item[0])
+                    result_list.append(item[4])
+                elif num_condition == 1:
+                    result_list.append(item[1])
+                    result_list.append(item[5])
+                elif num_condition == 2:
+                    result_list.append(item[3])
+                elif num_condition == 3:
+                    result_list.append(item[2])   
+                elif num_condition == 4:
+                    result_list.append(item[0])
+                    result_list.append(item[4]) 
+                elif num_condition == 5:
+                    result_list.append(item[1])
+                    result_list.append(item[5])                    
+        result_list = list(dict.fromkeys(result_list))        
+
+        return result_list
+        
